@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HHS School Dashboard</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23333' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15H9v-2h2v2zm0-4H9v-2h2v2zm0-4H9V7h2v2zm4 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2z'/%3E%3C/svg%3E" type="image/svg+xml">
+    
+    <style>
+        /* Base styles */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            color: #333;
+            display: flex;
+            min-height: 100vh;
+            /* Remove background-color here for background media to show */
+        }
+
+        /* NEW: FULL-SCREEN BACKGROUND CONTAINER */
+        #background-media {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1; /* Send it to the back */
+            overflow: hidden;
+            background-color: #f4f7f6; /* Fallback color */
+        }
+
+        /* Style for the background image */
+        #background-media img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Ensures image covers the whole area */
+            filter: brightness(0.5) blur(3px); /* Darken and blur for readability */
+        }
+
+        /* Style for the background video (YouTube iframe) */
+        #background-media iframe {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            transform: translate(-50%, -50%);
+            filter: brightness(0.5) blur(3px);
+            pointer-events: none; /* Allows clicks to go to content */
+        }
+
+        /* CONTENT OVERLAY for better readability */
+        .sidebar, .main-content {
+            position: relative; /* Ensure content is above the background */
+            z-index: 1;
+        }
+
+        /* Sidebar/Navigation */
+        .sidebar {
+            width: 70px;
+            background-color: rgba(44, 62, 80, 0.9); /* Slightly transparent dark blue */
+            padding: 15px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 2px 0 5px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+
+        .sidebar a {
+            margin-bottom: 20px;
+            display: block;
+            padding: 5px;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+
+        .sidebar a:hover {
+            background-color: #34495e;
+        }
+
+        .logo {
+            width: 40px;
+            height: 40px;
+        }
+        
+        /* Main Content Area */
+        .main-content {
+            flex-grow: 1;
+            padding: 20px 30px;
+            background-color: rgba(244, 247, 246, 0.85); /* Semi-transparent white overlay for content */
+        }
+
+        /* Header (Time/Date/Countdown) */
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #ddd;
+        }
+
+        #datetime {
+            font-size: 2em;
+            font-weight: 300;
+            color: #2980b9;
+        }
+
+        #countdown {
+            font-size: 1.2em;
+            margin-top: 10px;
+            font-weight: 600;
+            color: #e74c3c;
+        }
+
+        /* Dashboard Layout */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+        }
+
+        /* Schedule Card */
+        .card {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); /* Slightly stronger shadow */
+        }
+        
+        .schedule-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        .schedule-table th, .schedule-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .schedule-table th {
+            background-color: #ecf0f1;
+            color: #333;
+            font-weight: 600;
+        }
+
+        .current-period {
+            background-color: #f0f8ff !important;
+        }
+        
+        .bold-text {
+            font-weight: bold;
+            color: #2980b9;
+        }
+
+        /* To-Do List Card */
+        #todo-section h2 {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+        
+        #add-assignment-form input[type="text"], #add-assignment-form input[type="date"], #background-config input[type="url"], #background-config input[type="file"] {
+            width: calc(100% - 20px);
+            padding: 8px 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box; /* Important for width calculation */
+        }
+
+        #add-assignment-form button, #background-config button {
+            background-color: #2ecc71;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-top: 5px;
+        }
+
+        #add-assignment-form button:hover, #background-config button:hover {
+            background-color: #27ae60;
+        }
+
+        #assignment-list {
+            list-style: none;
+            padding: 0;
+            margin-top: 20px;
+        }
+
+        #assignment-list li {
+            padding: 10px;
+            margin-bottom: 8px;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #fcfcfc;
+            transition: all 0.2s;
+        }
+
+        .assignment-due-soon {
+            color: #e74c3c;
+            font-weight: 600;
+            border-left: 5px solid #e74c3c;
+        }
+        
+        .assignment-info {
+            flex-grow: 1;
+        }
+        
+        .remove-btn {
+            background: none;
+            border: none;
+            color: #999;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 1.2em;
+        }
+        .remove-btn:hover {
+            color: #e74c3c;
+        }
+    </style>
+</head>
+<body>
+    <div id="background-media"></div>
+
+    <div class="sidebar">
+        <a href="https://open.spotify.com/" target="_blank" title="Spotify">
+            <svg class="logo" fill="white" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm3.333 13.914c-.167.267-.5.333-.767.167-2.167-1.333-4.833-1.667-7.833-1.083-.333.067-.667-.167-.733-.5-.067-.333.167-.667.5-.733 3.333-.667 6.333-.333 8.833 1.25.267.167.333.5.167.767zm1.834-3.5c-.2-.333-.6-.433-.933-.233-2.667 1.667-6.5 2.167-9.333 1.333-.4-.1-.8.1-.9.5.1.4.5.8.9.9 3.333.9 7.333.333 10.333-1.5.333-.2.433-.6.233-.933zm.2-3.667c-3.167-1.75-8.333-1.833-11.25-.917-.417.167-.917 0-1.167-.417s0-.917.417-1.167c3.333-1 8.833-1 12.333.917.333.167.417.667.25 1-.167.417-.667.5-1 .333z"/></svg>
+        </a>
+        <a href="https://clever.com" target="_blank" title="Clever">
+            <svg class="logo" fill="white" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+        </a>
+        <a href="https://calendar.google.com/" target="_blank" title="Google Calendar">
+            <svg class="logo" fill="white" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 3h-1V2h-2v1H8V2H6v1H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>
+        </a>
+    </div>
+
+    <div class="main-content">
+        <div class="header">
+            <div id="datetime"></div>
+            <div id="countdown"></div>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="card" id="schedule-card">
+                <h2>2024–2025 HHS Regular Bell Schedule</h2>
+                <table class="schedule-table">
+                    <thead>
+                        <tr>
+                            <th>Class</th>
+                            <th>Start</th>
+                            <th>End</th>
+                            <th>Duration/Comments</th>
+                        </tr>
+                    </thead>
+                    <tbody id="schedule-body">
+                        </tbody>
+                </table>
+            </div>
+
+            <div class="card" id="todo-section">
+                <h2>Assignments Due</h2>
+                <form id="add-assignment-form">
+                    <input type="text" id="assignment-class" placeholder="Class Name" required>
+                    <input type="text" id="assignment-name" placeholder="Assignment Name" required>
+                    <input type="date" id="assignment-due-date" required>
+                    <button type="submit">Add Assignment</button>
+                </form>
+                
+                <ul id="assignment-list">
+                    </ul>
+                
+                <hr style="margin-top: 20px;">
+                <h3 style="margin-top: 20px;">Background Settings</h3>
+                <form id="background-config">
+                    <p style="margin: 0 0 5px;">**Image Upload:**</p>
+                    <input type="file" id="bg-file-upload" accept="image/*" style="margin-bottom: 10px;">
+                    <p style="margin: 5px 0 5px;">**OR Video Link (YouTube/Direct):**</p>
+                    <input type="url" id="bg-video-link" placeholder="Paste Video Link/URL">
+                    <button type="submit">Set Background</button>
+                    <button type="button" id="clear-bg-btn" style="background-color: #e74c3c;">Clear</button>
+                </form>
+                </div>
+        </div>
+    </div>
+
+    <script>
+        // --- SCHOOL SCHEDULE DATA ---
+        // Time is in 'HH:MM' format (24-hour)
+        const SCHEDULE = [
+            { name: "Arrival", start: "06:35", end: "07:15", comment: "First 15 buses - students report to the gym / Remaining buses - students report to the cafeteria, parent drop-offs and student drivers" },
+            { name: "Breakfast", start: "07:15", end: "07:35", comment: "Students report to for breakfast. Can only access A section to D section restrooms." },
+            { name: "Transition to 1st", start: "07:35", end: "07:45", comment: "Student will report to 1st mod" },
+            { name: "1st Mod", start: "07:45", end: "08:42", comment: "57 minutes (including 5 minutes for announcements)" },
+            { name: "Transition to 2nd", start: "08:42", end: "08:49", comment: "7 minutes" },
+            { name: "2nd Mod", start: "08:49", end: "09:42", comment: "53 minutes" },
+            { name: "Transition to 3rd", start: "09:42", end: "09:49", comment: "7 minutes" },
+            { name: "3rd Mod", start: "09:49", end: "10:42", comment: "53 minutes" },
+            // Note: Lunch/4th Mod entries are kept for highlighting, but only the main transition points are crucial for a single countdown
+            { name: "Transition to 4th/Lunch", start: "10:42", end: "10:49", comment: "7 minutes" },
+            { name: "Lunch A", start: "10:49", end: "11:19", comment: "30 minutes (Students with A Lunch)" },
+            { name: "4th Mod B", start: "10:49", end: "11:42", comment: "53 minutes (Students with B Lunch)" },
+            { name: "Transition between A/B Lunch", start: "11:19", end: "11:49", comment: "30 minutes" }, /* An 'in-between' transition/period */
+            { name: "Lunch B", start: "11:49", end: "12:19", comment: "30 minutes (Students with B Lunch)" },
+            { name: "4th Mod A", start: "11:49", end: "12:19", comment: "53 minutes (Students with A Lunch)" },
+            { name: "Transition to 5th", start: "12:19", end: "12:26", comment: "7 minutes" },
+            { name: "5th Mod", start: "12:26", end: "13:19", comment: "53 minutes" },
+            { name: "Transition to 6th", start: "13:19", end: "13:26", comment: "7 minutes" },
+            { name: "6th Mod", start: "13:26", end: "14:19", comment: "53 minutes" },
+            { name: "Transition to 7th", start: "14:19", end: "14:26", comment: "7 minutes" },
+            { name: "7th Mod", start: "14:26", end: "15:19", comment: "53 minutes" },
+            { name: "Dismissal", start: "15:19", end: "15:30", comment: "School day ends" }
+        ];
+
+        // --- GLOBAL VARIABLES ---
+        const scheduleBody = document.getElementById('schedule-body');
+        const dateTimeElement = document.getElementById('datetime');
+        const countdownElement = document.getElementById('countdown');
+        let currentPeriodIndex = -1;
+
+        // --- TIME AND DATE FUNCTIONS ---
+
+        /**
+         * Converts HH:MM string to a Date object for today.
+         * @param {string} timeStr - Time string in "HH:MM" format.
+         * @returns {Date} - A Date object set for today at the specified time.
+         */
+        function timeToDate(timeStr) {
+            const [hours, minutes] = timeStr.split(':').map(Number);
+            const now = new Date();
+            // Important: Use 'now' to ensure the date is correct for 'today'
+            const date = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0, 0);
+            return date;
+        }
+
+        // --- NEW: WEEKEND START TIME ---
+        const SCHOOL_START_TIME = timeToDate("06:35"); // Time of "Arrival" on Monday
+
+        // --- NEW: UTILITY FUNCTION TO FORMAT COUNTDOWN TIME ---
+        function formatTimeRemaining(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const totalMinutes = Math.floor(totalSeconds / 60);
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+            const seconds = totalSeconds % 60;
+
+            if (hours > 0) {
+                return `${hours}h ${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`;
+            }
+            return `${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`;
+        }
+
+        /**
+         * Finds the current period and the next period.
+         * Updates the global `currentPeriodIndex`.
+         * @param {Date} now - The current time.
+         * @returns {Object} - Indices of the current and next period.
+         */
+        function getCurrentPeriod(now) {
+            let nextPeriodIndex = -1;
+            currentPeriodIndex = -1;
+            const nowTime = now.getTime();
+            
+            // 1. Find the period currently in session
+            for (let i = 0; i < SCHEDULE.length; i++) {
+                const start = timeToDate(SCHEDULE[i].start).getTime();
+                const end = timeToDate(SCHEDULE[i].end).getTime();
+
+                if (nowTime >= start && nowTime < end) {
+                    currentPeriodIndex = i;
+                    // For countdown, the target is the END of the current period.
+                    nextPeriodIndex = i + 1; 
+                    break;
+                }
+            }
+
+            // 2. If no period is current, find the next one (before school starts)
+            if (currentPeriodIndex === -1) {
+                for (let i = 0; i < SCHEDULE.length; i++) {
+                    const start = timeToDate(SCHEDULE[i].start).getTime();
+                    if (nowTime < start) {
+                        // The next period starts now
+                        nextPeriodIndex = i;
+                        break;
+                    }
+                }
+            } else {
+                // Check if the current period is the last one
+                if (currentPeriodIndex === SCHEDULE.length - 1 && nowTime >= timeToDate(SCHEDULE[SCHEDULE.length - 1].end).getTime()) {
+                    nextPeriodIndex = -1; // End of school day
+                }
+            }
+            
+            return { currentPeriodIndex, nextPeriodIndex };
+        }
+
+        /**
+         * Updates the Time/Date display and the countdown.
+         * Incorporates NEW weekend logic.
+         * @param {Date} now - The current time.
+         */
+        function updateHeader(now) {
+            const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
+            const dateStr = now.toLocaleDateString(undefined, dateOptions);
+            const timeStr = now.toLocaleTimeString(undefined, timeOptions);
+            dateTimeElement.textContent = `${dateStr} | ${timeStr}`;
+
+            const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+
+            if (dayOfWeek === 0 || dayOfWeek === 6) { 
+                // --- WEEKEND COUNTDOWN LOGIC (Sunday/Saturday) ---
+                let targetDate = new Date(now);
+                // If it's Saturday (6) or Sunday (0), set target to next Monday
+                const daysUntilMonday = dayOfWeek === 6 ? 2 : 1; 
+                targetDate.setDate(targetDate.getDate() + daysUntilMonday);
+                targetDate.setHours(SCHOOL_START_TIME.getHours(), SCHOOL_START_TIME.getMinutes(), 0, 0); // Set to 6:35 AM
+                
+                const timeRemaining = targetDate.getTime() - now.getTime();
+                
+                if (timeRemaining > 0) {
+                    const totalSeconds = Math.floor(timeRemaining / 1000);
+                    const days = Math.floor(totalSeconds / (60 * 60 * 24));
+                    const hours = Math.floor((totalSeconds % (60 * 60 * 24)) / (60 * 60));
+                    const minutes = Math.floor((totalSeconds % (60 * 60)) / 60);
+                    const seconds = totalSeconds % 60;
+
+                    countdownElement.textContent = 
+                        `Time until school starts (Monday): ${days} Days, ${hours}h ${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`;
+                } else {
+                    countdownElement.textContent = "Welcome back to school!"; // Should only happen briefly Monday morning
+                }
+                countdownElement.style.display = 'block';
+
+            } else { 
+                // --- WEEKDAY COUNTDOWN LOGIC (Monday - Friday) ---
+                const { currentPeriodIndex: currentIdx, nextPeriodIndex: nextIdx } = getCurrentPeriod(now);
+                let countdownText = "School is out for the day!";
+                let targetTime;
+                
+                if (currentIdx !== -1) {
+                    // Currently in a period/transition/etc. -> Countdown to END of current period
+                    targetTime = timeToDate(SCHEDULE[currentIdx].end);
+                    const timeRemaining = targetTime.getTime() - now.getTime();
+                    
+                    if (timeRemaining > 0) {
+                        countdownText = `Time remaining in ${SCHEDULE[currentIdx].name}: ${formatTimeRemaining(timeRemaining)}`;
+                    }
+
+                } else if (nextIdx !== -1) {
+                    // Not in a period -> Countdown to START of next period
+                    targetTime = timeToDate(SCHEDULE[nextIdx].start);
+                    const timeRemaining = targetTime.getTime() - now.getTime();
+                    
+                    if (timeRemaining > 0) {
+                        countdownText = `Time until ${SCHEDULE[nextIdx].name} starts: ${formatTimeRemaining(timeRemaining)}`;
+                    }
+                }
+                
+                countdownElement.textContent = countdownText;
+                countdownElement.style.display = 'block';
+            }
+        }
+
+        /**
+         * Populates and highlights the schedule table.
+         * @param {Date} now - The current time.
+         */
+        function updateScheduleTable(now) {
+            scheduleBody.innerHTML = ''; // Clear existing rows
+            const dayOfWeek = now.getDay();
+            
+            // Only highlight on weekdays (1-5)
+            const { currentPeriodIndex: currentIdx } = (dayOfWeek >= 1 && dayOfWeek <= 5) ? getCurrentPeriod(now) : { currentPeriodIndex: -1 };
+
+            SCHEDULE.forEach((period, index) => {
+                const row = scheduleBody.insertRow();
+                let className = '';
+                
+                if (index === currentIdx) {
+                    className = 'current-period';
+                }
+                
+                row.className = className;
+
+                // Class Name Cell
+                let nameCell = row.insertCell();
+                nameCell.textContent = period.name;
+                if (index === currentIdx) nameCell.classList.add('bold-text');
+
+                // Start Time Cell
+                let startCell = row.insertCell();
+                startCell.textContent = period.start;
+                if (index === currentIdx) startCell.classList.add('bold-text');
+
+                // End Time Cell
+                let endCell = row.insertCell();
+                endCell.textContent = period.end;
+                if (index === currentIdx) endCell.classList.add('bold-text');
+
+                // Comments Cell
+                row.insertCell().textContent = period.comment;
+            });
+        }
+
+
+        // --- NEW: BACKGROUND MEDIA LOGIC ---
+
+        const backgroundMediaElement = document.getElementById('background-media');
+        const bgFileElement = document.getElementById('bg-file-upload');
+        const bgVideoLinkElement = document.getElementById('bg-video-link');
+        const bgConfigForm = document.getElementById('background-config');
+        const clearBgBtn = document.getElementById('clear-bg-btn');
+
+        /**
+         * Loads the stored background settings.
+         */
+        function loadBackground() {
+            const background = localStorage.getItem('hhs_background');
+            if (background) {
+                setBackground(background);
+                bgVideoLinkElement.value = background; // Pre-fill the input if it was a URL
+            }
+        }
+
+        /**
+         * Sets the background media (image URL or video URL).
+         * @param {string} source - The URL of the image/video.
+         */
+        function setBackground(source) {
+            backgroundMediaElement.innerHTML = ''; // Clear previous background
+
+            if (!source) {
+                localStorage.removeItem('hhs_background');
+                return;
+            }
+
+            if (source.includes('youtube.com/watch') || source.includes('youtu.be/')) {
+                // Handle YouTube
+                const videoIdMatch = source.match(/(?:v=|youtu\.be\/|embed\/)([^&?]+)/);
+                if (videoIdMatch && videoIdMatch[1]) {
+                    const videoId = videoIdMatch[1];
+                    const iframe = document.createElement('iframe');
+                    // Recommended YouTube embed parameters for background:
+                    // ?autoplay=1&mute=1&loop=1&playlist=VIDEO_ID&controls=0
+                    iframe.src = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&playlist=${videoId}&controls=0&modestbranding=1&rel=0&showinfo=0`;
+                    iframe.allow = "autoplay; encrypted-media";
+                    iframe.frameBorder = "0";
+                    iframe.allowFullscreen = true;
+                    backgroundMediaElement.appendChild(iframe);
+                    localStorage.setItem('hhs_background', source);
+                } else {
+                    alert("Invalid YouTube link. Please check the URL.");
+                }
+
+            } else if (source.startsWith('data:image/') || source.match(/\.(jpeg|jpg|png|gif|webp)$/i)) {
+                // Handle Image URL or Data URL (from file upload)
+                const img = document.createElement('img');
+                img.src = source;
+                img.alt = "Dashboard Background";
+                backgroundMediaElement.appendChild(img);
+                localStorage.setItem('hhs_background', source);
+
+            } else if (source.match(/\.(mp4|webm|ogg)$/i)) {
+                 // Handle Direct Video File (Simple approach, though CORS may be an issue)
+                const video = document.createElement('video');
+                video.src = source;
+                video.autoplay = true;
+                video.loop = true;
+                video.muted = true;
+                video.playsInline = true;
+                video.style.objectFit = 'cover';
+                video.style.width = '100%';
+                video.style.height = '100%';
+                video.style.filter = 'brightness(0.5) blur(3px)';
+                backgroundMediaElement.appendChild(video);
+                localStorage.setItem('hhs_background', source);
+            } else {
+                 alert("The URL doesn't look like a direct video file, a YouTube link, or a valid image. Clearing background.");
+                 localStorage.removeItem('hhs_background');
+            }
+        }
+
+        // Handle Background form submission
+        bgConfigForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const videoLink = bgVideoLinkElement.value.trim();
+            const file = bgFileElement.files[0];
+
+            if (file) {
+                // 1. Image Upload takes priority
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    setBackground(event.target.result); // Set background with data URL
+                    bgVideoLinkElement.value = ''; // Clear the video link input
+                };
+                reader.readAsDataURL(file);
+
+            } else if (videoLink) {
+                // 2. Video Link
+                setBackground(videoLink);
+                bgFileElement.value = ''; // Clear the file input
+
+            } else {
+                alert("Please upload an image file OR paste a video link.");
+            }
+        });
+
+        // Handle Clear Button
+        clearBgBtn.addEventListener('click', function() {
+            setBackground('');
+            bgFileElement.value = '';
+            bgVideoLinkElement.value = '';
+        });
+
+
+        // --- TO-DO LIST FUNCTIONS ---
+
+        const assignmentList = document.getElementById('assignment-list');
+        const assignmentForm = document.getElementById('add-assignment-form');
+
+        /**
+         * Loads assignments from localStorage.
+         */
+        function loadAssignments() {
+            try {
+                const storedAssignments = localStorage.getItem('hhs_assignments');
+                return storedAssignments ? JSON.parse(storedAssignments) : [];
+            } catch (e) {
+                console.error("Could not load assignments from localStorage:", e);
+                return [];
+            }
+        }
+
+        /**
+         * Saves the current assignments array to localStorage.
+         */
+        function saveAssignments(assignments) {
+            try {
+                localStorage.setItem('hhs_assignments', JSON.stringify(assignments));
+            } catch (e) {
+                console.error("Could not save assignments to localStorage:", e);
+            }
+        }
+
+        /**
+         * Renders the assignment list on the dashboard.
+         */
+        function renderAssignments() {
+            const assignments = loadAssignments().sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate)); // Sort by due date
+            assignmentList.innerHTML = ''; // Clear the list
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            assignments.forEach((assignment, index) => {
+                const li = document.createElement('li');
+                
+                const dueDate = new Date(assignment.dueDate + 'T00:00:00'); // Ensure date comparison is correct
+                dueDate.setHours(0, 0, 0, 0);
+
+                // Calculate the difference in days
+                const diffTime = dueDate.getTime() - today.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                // If due date is within 3 days (or passed), turn the text red
+                if (diffDays <= 3) {
+                    li.classList.add('assignment-due-soon');
+                }
+                
+                const dateOptions = { month: 'short', day: 'numeric' };
+                const formattedDate = dueDate.toLocaleDateString(undefined, dateOptions);
+                
+                const assignmentInfo = document.createElement('div');
+                assignmentInfo.className = 'assignment-info';
+                assignmentInfo.innerHTML = `
+                    <strong>${assignment.className}</strong>: ${assignment.assignmentName}
+                    <br>
+                    <small>Due: ${formattedDate} ${diffDays === 0 ? '(Today!)' : (diffDays < 0 ? '(PAST DUE)' : `(in ${diffDays} days)`)}</small>
+                `;
+
+                const removeBtn = document.createElement('button');
+                removeBtn.textContent = '×';
+                removeBtn.className = 'remove-btn';
+                removeBtn.title = 'Remove Assignment';
+                removeBtn.onclick = () => removeAssignment(index);
+
+                li.appendChild(assignmentInfo);
+                li.appendChild(removeBtn);
+                assignmentList.appendChild(li);
+            });
+
+            saveAssignments(assignments); // Re-save to ensure proper sorting/updates if necessary
+        }
+        
+        /**
+         * Handles the form submission for adding a new assignment.
+         */
+        assignmentForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const newAssignment = {
+                className: document.getElementById('assignment-class').value.trim(),
+                assignmentName: document.getElementById('assignment-name').value.trim(),
+                dueDate: document.getElementById('assignment-due-date').value // YYYY-MM-DD
+            };
+            
+            if (newAssignment.className && newAssignment.assignmentName && newAssignment.dueDate) {
+                let assignments = loadAssignments();
+                assignments.push(newAssignment);
+                saveAssignments(assignments);
+                renderAssignments();
+                
+                // Clear the form fields
+                document.getElementById('assignment-class').value = '';
+                document.getElementById('assignment-name').value = '';
+                document.getElementById('assignment-due-date').value = '';
+            }
+        });
+
+        /**
+         * Removes an assignment by its current index in the rendered list.
+         */
+        function removeAssignment(index) {
+            let assignments = loadAssignments().sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+            assignments.splice(index, 1); // Remove the item at the specified index
+            saveAssignments(assignments);
+            renderAssignments();
+        }
+
+        // --- INITIALIZATION ---
+        
+        loadBackground();
+        updateDashboard();
+        renderAssignments();
+
+        /**
+         * Main update function, called every second.
+         */
+        function updateDashboard() {
+            const now = new Date();
+            updateHeader(now);
+            updateScheduleTable(now);
+        }
+
+        // Update the dashboard every second (1000ms)
+        setInterval(updateDashboard, 1000);
+    </script>
+
+</body>
+</html>
